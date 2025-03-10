@@ -1,117 +1,131 @@
 import React, { useState, useEffect } from "react";
 
-type TransactionProps = {
-  id: string;
-};
-
-const Transaction: React.FC<TransactionProps> = ({ id }) => {
-  const [transaction, setTransaction] = useState<any>(null);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+const TransactionList = () => {
+  const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    name: "",
+    amount: 0,
+    date: new Date().toISOString().split("T")[0],
+    description: "",
+    category_id: "",
+  });
 
   useEffect(() => {
-    // Fetch transaction details
-    fetch(`http://localhost:3100/api/transaction/${id}`)
-      .then((response) => response.json())
-      .then((data) => {
-        setTransaction(data);
-        setLoading(false);
-      });
+    fetch("http://localhost:3100/api/transactions")
+      .then((res) => res.json())
+      .then((data) => setTransactions(data));
 
-    // Fetch categories
     fetch("http://localhost:3100/api/category")
-      .then((response) => response.json())
+      .then((res) => res.json())
       .then((data) => setCategories(data));
-  }, [id]);
+  }, []);
 
-  const handleUpdate = () => {
-    fetch(`http://localhost:3100/api/transaction/${id}`, {
-      method: "PUT",
+  const handleAddTransaction = () => {
+    fetch("http://localhost:3100/api/transaction", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(transaction),
+      body: JSON.stringify(newTransaction),
     })
-      .then((response) => response.json())
-      .then((data) => setTransaction(data));
+      .then((res) => res.json())
+      .then((data) => {
+        setTransactions([...transactions, data]);
+        setNewTransaction({
+          name: "",
+          amount: 0,
+          date: new Date().toISOString().split("T")[0],
+          description: "",
+          category_id: "",
+        });
+        setShowForm(false); 
+      });
   };
-
-  const handleDelete = () => {
-    fetch(`http://localhost:3100/api/transaction/${id}`, {
-      method: "DELETE",
-    }).then(() => {
-      alert("Transaction deleted");
-      window.location.href = "/";
-    });
-  };
-
-  if (loading) return <div>Loading...</div>;
 
   return (
     <div>
-      <h2>Transaction Details</h2>
+      <h3>Transactions</h3>
       <table border={1} style={{ width: "100%", textAlign: "left" }}>
         <thead>
           <tr>
             <th>Name</th>
             <th>Category</th>
             <th>Amount</th>
+            <th>Date</th>
             <th>Description</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>
-              <input
-                type="text"
-                value={transaction.name}
-                onChange={(e) =>
-                  setTransaction({ ...transaction, name: e.target.value })
-                }
-              />
-            </td>
-            <td>
-              <select
-                value={transaction.category_id}
-                onChange={(e) =>
-                  setTransaction({ ...transaction, category_id: e.target.value })
-                }
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td>
-              <input
-                type="number"
-                value={transaction.amount}
-                onChange={(e) =>
-                  setTransaction({ ...transaction, amount: parseFloat(e.target.value) })
-                }
-              />
-            </td>
-            <td>
-              <input
-                type="text"
-                value={transaction.description}
-                onChange={(e) =>
-                  setTransaction({ ...transaction, description: e.target.value })
-                }
-              />
-            </td>
-            <td>
-              <button onClick={handleUpdate}>Update</button>
-              <button onClick={handleDelete} style={{ color: "red" }}>
-                Delete
-              </button>
-            </td>
-          </tr>
+          {transactions.map((t) => (
+            <tr key={t.id}>
+              <td>{t.name}</td>
+              <td>{categories.find((c) => c.id === t.category_id)?.name || "Unknown"}</td>
+              <td>${t.amount.toFixed(2)}</td>
+              <td>{new Date(t.date).toLocaleDateString()}</td>
+              <td>{t.description}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
+
+      <button
+        onClick={() => setShowForm(!showForm)}
+        style={{
+          marginTop: "10px",
+          padding: "8px 12px",
+          fontSize: "16px",
+          cursor: "pointer",
+          backgroundColor: "#008CBA",
+          color: "white",
+          border: "none",
+          borderRadius: "5px"
+        }}
+      >
+        {showForm ? "Cancel" : "+ Add Transaction"}
+      </button>
+
+      {showForm && (
+        <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#222", borderRadius: "5px" }}>
+          <h3>Create New Transaction</h3>
+          <input
+            type="text"
+            placeholder="Transaction Name"
+            value={newTransaction.name}
+            onChange={(e) => setNewTransaction({ ...newTransaction, name: e.target.value })}
+          />
+          <input
+            type="number"
+            placeholder="Amount"
+            value={newTransaction.amount}
+            onChange={(e) => setNewTransaction({ ...newTransaction, amount: Number(e.target.value) })}
+          />
+          <input
+            type="date"
+            value={newTransaction.date}
+            onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Description"
+            value={newTransaction.description}
+            onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+          />
+          <select
+            value={newTransaction.category_id}
+            onChange={(e) => setNewTransaction({ ...newTransaction, category_id: e.target.value })}
+          >
+            <option value="">Select Category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button onClick={handleAddTransaction}>Add Transaction</button>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Transaction;
+export default TransactionList;

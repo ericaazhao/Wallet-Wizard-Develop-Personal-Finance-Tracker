@@ -89,14 +89,14 @@ app.get("/api/transaction/:id", async (req, res) => {
 // Create new transaction
 app.post("/api/transaction", async (req, res) => {
     let client;
-    const { name, amount, description, category_id } = req.body;
+    const { name, amount, description, category_id, date } = req.body;
     try {
         client = await pool.connect();
         const resp = await client.query(`
-            INSERT INTO transactions (name, amount, description, category_id, created_at, updated_at) 
-            VALUES ($1, $2, $3, $4, NOW(), NOW()) 
+            INSERT INTO transactions (name, amount, description, category_id, date, created_at, updated_at) 
+            VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
             RETURNING *;
-        `, [name, amount, description, category_id]);
+        `, [name, amount, description, category_id, date]);
         res.json(resp.rows[0]);
     } catch (err) {
         console.error("Error creating transaction:", err);
