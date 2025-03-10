@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import moment from "moment-timezone"; 
+import CategoryList from "../components/CategoryList"; 
 
 type Transaction = {
   id: string;
@@ -36,6 +37,9 @@ function Index() {
   return (
     <div style={{ fontFamily: "Arial, sans-serif", color: "#fff", backgroundColor: "#111", padding: "20px" }}>
       <h1>{message}</h1>
+      
+      <CategoryList />  {/* 添加 CategoryList */}
+
       <h2>Transactions</h2>
       <table style={{ borderCollapse: "collapse", width: "100%", border: "1px solid white" }}>
         <thead>
