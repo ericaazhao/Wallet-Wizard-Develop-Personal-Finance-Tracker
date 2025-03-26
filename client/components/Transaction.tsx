@@ -1,10 +1,27 @@
 import React, { useState, useEffect } from "react";
 
+interface Transaction {
+  id?: string;
+  name: string;
+  amount: number;
+  date: string;
+  description: string;
+  category_id: string;
+}
+
+interface Category {
+  id: string;
+  category_name: string;
+  created_at: string | Date;
+}
+
 const TransactionList = () => {
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [newTransaction, setNewTransaction] = useState({
+  const [loading, setLoading] = useState(true);
+
+  const [newTransaction, setNewTransaction] = useState<Transaction>({
     name: "",
     amount: 0,
     date: new Date().toISOString().split("T")[0],
@@ -13,115 +30,140 @@ const TransactionList = () => {
   });
 
   useEffect(() => {
-    fetch("http://localhost:3100/api/transactions")
-      .then((res) => res.json())
-      .then((data) => setTransactions(data));
+    const fetchData = async () => {
+      try {
+        const [tRes, cRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/transactions`),
+          fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/category`),
+        ]);
+        const [tData, cData] = await Promise.all([tRes.json(), cRes.json()]);
+        setTransactions(tData);
+        setCategories(cData);
+      } catch (err) {
+        console.error("Failed to load data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    fetch("http://localhost:3100/api/category")
-      .then((res) => res.json())
-      .then((data) => setCategories(data));
+    fetchData();
   }, []);
 
-  const handleAddTransaction = () => {
-    fetch("http://localhost:3100/api/transaction", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newTransaction),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setTransactions([...transactions, data]);
-        setNewTransaction({
-          name: "",
-          amount: 0,
-          date: new Date().toISOString().split("T")[0],
-          description: "",
-          category_id: "",
-        });
-        setShowForm(false); 
+  const handleAddTransaction = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/transaction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTransaction),
       });
+      const data = await res.json();
+      setTransactions((prev) => [...prev, data]);
+      setNewTransaction({
+        name: "",
+        amount: 0,
+        date: new Date().toISOString().split("T")[0],
+        description: "",
+        category_id: "",
+      });
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to add transaction:", err);
+    }
+  };
+
+  const getCategoryName = (category_id: string) => {
+    return categories.find((c) => c.id === category_id)?.category_name || "Unknown";
   };
 
   return (
-    <div>
-      <h3>Transactions</h3>
-      <table border={1} style={{ width: "100%", textAlign: "left" }}>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Amount</th>
-            <th>Date</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {transactions.map((t) => (
-            <tr key={t.id}>
-              <td>{t.name}</td>
-              <td>{categories.find((c) => c.id === t.category_id)?.name || "Unknown"}</td>
-              <td>${t.amount.toFixed(2)}</td>
-              <td>{new Date(t.date).toLocaleDateString()}</td>
-              <td>{t.description}</td>
+    <div className="p-4 max-w-4xl mx-auto">
+      <h3 className="text-2xl font-bold mb-4">Transactions</h3>
+
+      {loading ? (
+        <div className="text-center text-gray-600 py-4">Loading...</div>
+      ) : (
+        <table className="w-full table-auto border-collapse mb-4 shadow-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-4 py-2 border-b text-left">Name</th>
+              <th className="px-4 py-2 border-b text-left">Category</th>
+              <th className="px-4 py-2 border-b text-left">Amount</th>
+              <th className="px-4 py-2 border-b text-left">Date</th>
+              <th className="px-4 py-2 border-b text-left">Description</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {transactions.map((t) => (
+              <tr key={t.id} className="hover:bg-gray-50">
+                <td className="px-4 py-2 border-b">{t.name}</td>
+                <td className="px-4 py-2 border-b">{getCategoryName(t.category_id)}</td>
+                <td className="px-4 py-2 border-b">${(t.amount / 100).toFixed(2)}</td>
+                <td className="px-4 py-2 border-b">{new Date(t.date).toLocaleDateString()}</td>
+                <td className="px-4 py-2 border-b">{t.description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <button
-        onClick={() => setShowForm(!showForm)}
-        style={{
-          marginTop: "10px",
-          padding: "8px 12px",
-          fontSize: "16px",
-          cursor: "pointer",
-          backgroundColor: "#008CBA",
-          color: "white",
-          border: "none",
-          borderRadius: "5px"
-        }}
+        onClick={() => setShowForm((prev) => !prev)}
+        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-semibold"
       >
         {showForm ? "Cancel" : "+ Add Transaction"}
       </button>
 
       {showForm && (
-        <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#222", borderRadius: "5px" }}>
-          <h3>Create New Transaction</h3>
+        <div className="mt-4 bg-gray-100 p-4 rounded space-y-2">
+          <h3 className="text-lg font-semibold mb-2">Create New Transaction</h3>
+
           <input
             type="text"
             placeholder="Transaction Name"
             value={newTransaction.name}
             onChange={(e) => setNewTransaction({ ...newTransaction, name: e.target.value })}
+            className="w-full p-2 border rounded"
           />
           <input
             type="number"
-            placeholder="Amount"
-            value={newTransaction.amount}
-            onChange={(e) => setNewTransaction({ ...newTransaction, amount: Number(e.target.value) })}
+            placeholder="Amount (e.g. 12.99)"
+            value={(newTransaction.amount / 100).toFixed(2)}
+            onChange={(e) =>
+              setNewTransaction({ ...newTransaction, amount: Math.round(parseFloat(e.target.value || "0") * 100) })
+            }
+            className="w-full p-2 border rounded"
           />
           <input
             type="date"
             value={newTransaction.date}
             onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+            className="w-full p-2 border rounded"
           />
           <input
             type="text"
             placeholder="Description"
             value={newTransaction.description}
             onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+            className="w-full p-2 border rounded"
           />
           <select
             value={newTransaction.category_id}
             onChange={(e) => setNewTransaction({ ...newTransaction, category_id: e.target.value })}
+            className="w-full p-2 border rounded"
           >
             <option value="">Select Category</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.category_name}
               </option>
             ))}
           </select>
-          <button onClick={handleAddTransaction}>Add Transaction</button>
+          <button
+            onClick={handleAddTransaction}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold"
+          >
+            Add Transaction
+          </button>
         </div>
       )}
     </div>
